@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dev.to Growth Lab</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  
+  <style>
+    body { background-color: #0f0f0f; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .custom-card { background-color: #1a1a1a; border: 1px solid #2d2d2d; border-radius: 16px; transition: transform 0.2s; }
+    .stat-card:hover { transform: translateY(-3px); border-color: #198754; }
+    .text-muted-custom { color: #888; }
+    .modal-content { background-color: #1a1a1a; border: 1px solid #333; border-radius: 20px; }
+    .form-control, .form-control:focus { background-color: #111; border-color: #333; color: white; }
+    .btn-success { border-radius: 10px; font-weight: 600; }
+  </style>
+</head>
+<body class="py-5">
+
+<div class="container" style="max-width: 900px;">
+  
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex align-items-center">
+      <div class="bg-success bg-opacity-10 p-2 rounded-3 me-3">
+        <i class="bi bi-graph-up-arrow text-success fs-4"></i>
+      </div>
+      <h2 class="mb-0 fw-bold">Growth Projection</h2>
+    </div>
+    <button class="btn btn-outline-light btn-sm px-3" data-bs-toggle="modal" data-bs-target="#settingsModal">
+      <i class="bi bi-gear-fill me-2"></i>Configure
+    </button>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="custom-card stat-card p-3 text-center h-100 shadow-sm">
+        <p class="text-muted-custom small mb-1">Current</p>
+        <h3 id="display-current" class="fw-bold mb-0">440</h3>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="custom-card stat-card p-3 text-center h-100 shadow-sm">
+        <p class="text-muted-custom small mb-1">Target Posts</p>
+        <h3 id="display-posts" class="fw-bold mb-0">123</h3>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="custom-card stat-card p-3 text-center h-100 shadow-sm">
+        <p class="text-muted-custom small mb-1">Gain / Post</p>
+        <h3 id="rate-out" class="fw-bold mb-0 text-success">5</h3>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="custom-card stat-card p-3 text-center h-100 shadow-sm border-success">
+        <p class="text-muted-custom small mb-1">Projected Total</p>
+        <h3 id="total-out" class="fw-bold mb-0 text-success">1,055</h3>
+      </div>
+    </div>
+  </div>
+
+  <div class="custom-card p-4 mb-4">
+    <div class="d-flex align-items-center gap-4">
+      <div class="flex-grow-1">
+        <label class="form-label text-muted-custom small fw-bold text-uppercase mb-3">Post Impact Sensitivity</label>
+        <input type="range" class="form-range" id="rate" min="1" max="50" value="5">
+      </div>
+      <div class="text-center">
+        <span class="d-block text-muted-custom tiny mb-1">Multiplier</span>
+        <span class="badge bg-success fs-5 px-3" id="rate-label">5</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="custom-card p-4 mb-4">
+    <div style="position: relative; height: 350px;">
+      <canvas id="growthChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold">Update Baseline Data</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body py-4">
+        <div class="mb-3">
+          <label class="form-label small text-muted-custom">Current Followers</label>
+          <input type="number" id="input-current" class="form-control form-control-lg" value="440">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small text-muted-custom">Number of Future Posts</label>
+          <input type="number" id="input-posts" class="form-control form-control-lg" value="123">
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-dark w-100 py-2" id="save-settings" data-bs-dismiss="modal">Update Dashboard</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<script>
+// State Management
+let config = {
+  currentFollowers: 440,
+  remainingPosts: 123,
+  growthRate: 5
+};
+
+let chart;
+
+function updateDashboard() {
+  // Update Display Labels
+  document.getElementById('display-current').textContent = config.currentFollowers.toLocaleString();
+  document.getElementById('display-posts').textContent = config.remainingPosts;
+  document.getElementById('rate-out').textContent = config.growthRate;
+  document.getElementById('rate-label').textContent = config.growthRate;
+
+  // Recalculate Projection
+  const total = config.currentFollowers + (config.remainingPosts * config.growthRate);
+  document.getElementById('total-out').textContent = total.toLocaleString();
+
+  renderChart();
+}
+
+function renderChart() {
+  const labels = ['Start', 'Milestone 1', 'Milestone 2', 'Milestone 3', 'Projected End'];
+  const steps = config.remainingPosts / 4;
+  
+  // Generate simple linear growth data based on inputs
+  const dataPoints = [
+    config.currentFollowers,
+    Math.round(config.currentFollowers + (steps * 1 * config.growthRate)),
+    Math.round(config.currentFollowers + (steps * 2 * config.growthRate)),
+    Math.round(config.currentFollowers + (steps * 3 * config.growthRate)),
+    Math.round(config.currentFollowers + (config.remainingPosts * config.growthRate))
+  ];
+
+  if (chart) chart.destroy();
+
+  const ctx = document.getElementById('growthChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: dataPoints,
+        borderColor: '#198754',
+        backgroundColor: 'rgba(25, 135, 84, 0.1)',
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#198754',
+        borderWidth: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#666' } },
+        y: { grid: { color: '#2d2d2d' }, ticks: { color: '#666' } }
+      }
+    }
+  });
+}
+
+// Event Listeners
+document.getElementById('rate').addEventListener('input', (e) => {
+  config.growthRate = parseInt(e.target.value);
+  updateDashboard();
+});
+
+document.getElementById('save-settings').addEventListener('click', () => {
+  config.currentFollowers = parseInt(document.getElementById('input-current').value) || 0;
+  config.remainingPosts = parseInt(document.getElementById('input-posts').value) || 0;
+  updateDashboard();
+});
+
+// Initial Init
+updateDashboard();
+</script>
+</body>
+</html>
